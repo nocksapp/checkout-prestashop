@@ -1,0 +1,1 @@
+# Nocks Checkout Presta stub
