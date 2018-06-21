@@ -16,6 +16,9 @@ function bplog($contents) {
     return false;
 }
 
+require_once __DIR__ . '/Api.php';
+require_once __DIR__ . '/Util.php';
+
 class nockscheckout extends PaymentModule {
     private $_html = '';
 
@@ -28,11 +31,10 @@ class nockscheckout extends PaymentModule {
         $this->currencies_mode = 'checkbox';
         $this->tab = 'payments_gateways';
         $this->display = 'view';
-        $this->apiurl = 'https://api.nocks.com/api/v2/';
         $this->sslport = 443;
         $this->verifypeer = 1;
         $this->verifyhost = 2;
-        $this->controllers = ['payment', 'validation'];
+        $this->controllers = ['payment', 'validation', 'accesstoken', 'merchants'];
 
         parent::__construct();
 
@@ -52,7 +54,8 @@ class nockscheckout extends PaymentModule {
             return false;
         }
 
-        if (!parent::install() || !$this->registerHook('payment') || !$this->registerHook('paymentReturn') || !$this->registerHook('paymentOptions')) {
+        if (!parent::install() || !$this->registerHook('payment') || !$this->registerHook('paymentReturn')
+            || !$this->registerHook('paymentOptions')) {
             return false;
         }
 
@@ -60,6 +63,7 @@ class nockscheckout extends PaymentModule {
     }
 
     public function uninstall() {
+	    Configuration::deleteByName('nockscheckout_TESTMODE');
         Configuration::deleteByName('nockscheckout_APIKEY');
         Configuration::deleteByName('nockscheckout_MERCHANT_UUID');
         Configuration::deleteByName('nockscheckout_GULDEN');
@@ -76,7 +80,6 @@ class nockscheckout extends PaymentModule {
 
         return $this->_html;
     }
-
 
     public function hookPaymentOptions($params) {
         if (!$this->active) {
@@ -107,60 +110,6 @@ class nockscheckout extends PaymentModule {
         ]);
 
         return $this->display(__FILE__, 'payment.tpl');
-    }
-
-    public function doApiCall($action, $postData = false) {
-        $curl = curl_init($this->apiurl . $action);
-        $length = 0;
-
-        if (is_array($postData)) {
-            $jsonData = json_encode($postData);
-            curl_setopt($curl, CURLOPT_POST, 1);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, $jsonData);
-
-            $length = strlen($jsonData);
-        }
-
-        $bearerToken = Configuration::get('nockscheckout_APIKEY');
-        $header = [
-            'Content-Type: application/json',
-            'Content-Length: ' . $length,
-            'Authorization: Bearer ' . $bearerToken,
-            'X-Nocks-Plugin-Version: Checkout-Presta-' . $this->version,
-        ];
-
-        curl_setopt($curl, CURLINFO_HEADER_OUT, true);
-        curl_setopt($curl, CURLOPT_PORT, $this->sslport);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($curl, CURLOPT_TIMEOUT, 10);
-        curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, $this->verifypeer); // verify certificate (1)
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, $this->verifyhost); // check existence of CN and verify that it matches hostname (2)
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_FORBID_REUSE, 1);
-        curl_setopt($curl, CURLOPT_FRESH_CONNECT, 1);
-
-
-        $responseString = curl_exec($curl);
-
-        if (!$responseString) {
-            $response = curl_error($curl);
-
-            die(Tools::displayError("Error: no data returned from API server!"));
-        }
-
-        $response = json_decode($responseString, true);
-
-        curl_close($curl);
-
-        if (isset($response['error'])) {
-            bplog($response['error']);
-
-            die(Tools::displayError("Error occurred! (" . $response['error']['type'] . " - " . $response['error']['message'] . ")"));
-        }
-
-
-        return $response;
     }
 
     public function execPayment($cart) {
@@ -195,13 +144,15 @@ class nockscheckout extends PaymentModule {
             "locale"            => "nl_NL"
         ];
 
+	    $accessToken = Configuration::get('nockscheckout_APIKEY');
+	    $testmode = Configuration::get('nockscheckout_TESTMODE');
 
-        // Call Nocks
-        $callResponse = $this->doApiCall('transaction', $post);
+	    $nocks = new Nocks_NocksCheckout_Api($accessToken, $testmode === '1');
+	    $response = $nocks->createTransaction($post);
 
-        if (isset($callResponse['data']['payments']["data"][0]['uuid'])) {
+        if ($response && isset($response['data']['payments']["data"][0]['uuid'])) {
             // Redirect to nocks checkout screen
-            header("Location: https://nocks.com/payment/url/".$callResponse['data']['payments']["data"][0]['uuid']);
+            header("Location: " . $response['data']['payments']["data"][0]['metadata']['url']);
             die();
         }
 
@@ -210,7 +161,12 @@ class nockscheckout extends PaymentModule {
     }
 
 	public function getTransaction($transactionID) {
-		return $this->doApiCall( 'transaction/' . $transactionID )['data'];
+		$accessToken = Configuration::get('nockscheckout_APIKEY');
+		$testmode = Configuration::get('nockscheckout_TESTMODE');
+
+		$nocks = new Nocks_NocksCheckout_Api($accessToken, $testmode === '1');
+
+		return $nocks->getTransaction($transactionID);
 	}
 
     public function hookPaymentReturn($params) {
@@ -267,40 +223,35 @@ class nockscheckout extends PaymentModule {
     }
 
     private function _getSettingsTabHtml() {
+	    $testMode = htmlentities(Tools::getValue('testmode', Configuration::get('nockscheckout_TESTMODE')), ENT_COMPAT, 'UTF-8');
         $apiToken = htmlentities(Tools::getValue('apikey', Configuration::get('nockscheckout_APIKEY')), ENT_COMPAT, 'UTF-8');
         $uuid = htmlentities(Tools::getValue('uuid', Configuration::get('nockscheckout_MERCHANT_UUID')), ENT_COMPAT, 'UTF-8');
 
-        $merchantsOptions = "<option value=''>== No merchant account selected ==</option>";
+	    $nocks = new Nocks_NocksCheckout_Api($apiToken, $testMode === '1');
+	    $options = Nocks_NocksCheckout_Util::getMerchantsOptions($nocks->getMerchants());
 
-        if ($apiToken) {
-            $callResponse = ($this->doApiCall('merchant'));
-            $merchants = $callResponse["data"];
+	    $merchantsOptions = "";
 
-            foreach ($merchants as $merchant) {
-                $merchantName = $merchant['name'];
-                foreach ($merchant['merchant_profiles']['data'] as $profile) {
-                    $merchantsOptions .= '<option ' . ($uuid == $profile['uuid'] ? 'selected' : '') . ' value="' . htmlentities($profile['uuid'], ENT_COMPAT, 'UTF-8') . '">' . htmlentities(($merchantName == $profile['name'] ? $merchantName : $merchantName . ' (' . $profile['name'] . ')').' ('.$merchant['coc'].')', ENT_COMPAT, 'UTF-8') . '</option>';
-                }
-            }
-        }
+	    foreach ($options as $option) {
+	        $merchantsOptions .= '<option ' . ($uuid == $option['value'] ? 'selected' : '') . ' value="' . $option['value'] . '">' . htmlentities($option['label'], ENT_COMPAT, 'UTF-8') . '</option>';
+	    }
 
         $html = '<div class="nocks-checkout"><h2>' . $this->l('Settings') . '</h2>
                <div class="login">
                
-               <h3 style="clear:both;">' . $this->l('Merchant access token') . '</h3>
-               <textarea style="width:400px;" name="apikey_nockscheckout">' . $apiToken . '</textarea>
-               <a href="https://www.nocks.com/account/api/personal-tokens">You can find or create your Merchant access token here</a><br/>
-               Make sure you have the following scopes selected:</br>
-               <ul>
-               <li> merchant.read
-               <li> transaction.create<br/>
-               <li> transaction.read
-               </ul>
+               <h3>' . $this->l('Testmode') . '</h3>
+               <select name="testmode_nockscheckout" id="payment_nockspaymentgateway_testmode">
+                <option value="0" ' . ($testMode !== '1' ? 'selected' : '') . '>' . $this->l('No') . '</option>
+                <option value="1" ' . ($testMode === '1' ? 'selected' : '') . '>' . $this->l('Yes') . '</option>
+               </select>
+               
+               <h3>' . $this->l('Merchant access token') . '</h3>
+               <textarea style="width: 100%; height: 100px;" name="apikey_nockscheckout" id="payment_nockspaymentgateway_access_token">' . $apiToken . '</textarea>  
                </div>
                <div style="">
                <label>
                Selected Merchant Account
-               <select name="merchant_uuid_nockscheckout">' . $merchantsOptions . '</select>
+               <select name="merchant_uuid_nockscheckout" id="payment_nockspaymentgateway_merchant">' . $merchantsOptions . '</select>
                </label>
                 </div>
                <div style="clear:both;margin-bottom:30px;overflow:hidden;">
@@ -319,23 +270,32 @@ class nockscheckout extends PaymentModule {
                text-align: left !important;
                 width: 100%;
                }
-               .nocks-checkout, .nocks-checkout>div {
-                clear:both;
-                margin-bottom:30px;
-                max-width: 300px;
-               }
                </style>
                ';
 
-        return $html;
+        return $html . $this->_js();
     }
 
     private function _postProcess() {
         if (Tools::isSubmit('submitnockscheckout')) {
             $this->_errors = [];
 
-            if (Tools::getValue('apikey_nockscheckout') == null)
-                $this->_errors[] = $this->l('Please provide a merchant API Key');
+            $accessToken = Tools::getValue('apikey_nockscheckout');
+            $testMode = Tools::getValue('testmode_nockscheckout') === '1' ? '1' : '0';
+
+            if ($accessToken == null) {
+	            $this->_errors[] = $this->l('Please provide a merchant access token');
+            } else {
+	            $nocks = new Nocks_NocksCheckout_Api($accessToken, $testMode === '1');
+	            $scopes = $nocks->getTokenScopes();
+
+	            if (!Nocks_NocksCheckout_Util::hasAllRequiredScopes($scopes)) {
+		            $this->_errors[] = $this->l('Please provide a merchant access token with correct scopes');
+                }
+            }
+
+            if (Tools::getValue('merchant_uuid_nockscheckout') == null)
+	            $this->_errors[] = $this->l('Please provide a merchant');
 
             if (count($this->_errors) > 0) {
                 $error_msg = '';
@@ -347,15 +307,99 @@ class nockscheckout extends PaymentModule {
                 $this->_html = $this->displayError($error_msg);
             }
             else {
-                Configuration::updateValue('nockscheckout_APIKEY', trim(Tools::getValue('apikey_nockscheckout')));
+	            Configuration::updateValue('nockscheckout_TESTMODE', $testMode);
+                Configuration::updateValue('nockscheckout_APIKEY', $accessToken);
                 Configuration::updateValue('nockscheckout_MERCHANT_UUID', trim(Tools::getValue('merchant_uuid_nockscheckout')));
                 Configuration::updateValue('nockscheckout_GULDEN', trim(Tools::getValue('payment_gulden_nockscheckout')));
 
                 $this->_html = $this->displayConfirmation($this->l('Settings updated'));
             }
-
         }
+    }
 
+    private function _js() {
+	    $merchantsUrl = Context::getContext()->link->getModuleLink('nockscheckout', 'merchants');
+	    $loadingMerchantsText = $this->l('Loading merchants');
+	    $noMerchantsFoundText = $this->l('No merchants found');
+
+	    $js = '
+            <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+            <script type="text/javascript">
+                var merchantsUrl = "' . $merchantsUrl . '";
+                var loadingMerchantsText = "' . $loadingMerchantsText . '";
+                var noMerchantsFoundText = "' . $noMerchantsFoundText . '";
+        
+                var $j = jQuery.noConflict();
+            
+                $j(document).ready(function() {            
+                    var merchantsTimeout = null;
+                    var $merchantSelect = $j(\'#payment_nockspaymentgateway_merchant\');
+                    $merchantSelect.before(\'<p id="payment_nockspaymentgateway_merchants_message" style="display: none; color: red"></p>\');
+            
+                    if ($merchantSelect.find(\'option\').length === 0) {
+                        $merchantSelect.hide();
+                        $j(\'#payment_nockspaymentgateway_merchants_message\')
+                            .html(noMerchantsFoundText)
+                            .show();
+                    }
+            
+                    function getMerchants() {
+                        $merchantSelect.hide();
+                        $j(\'#payment_nockspaymentgateway_merchants_message\')
+                            .html(loadingMerchantsText)
+                            .show();
+            
+                        clearTimeout(merchantsTimeout);
+                        merchantsTimeout = setTimeout(function() {
+                            var testmode = $j(\'#payment_nockspaymentgateway_testmode\').val();
+                            var accessToken = $j(\'#payment_nockspaymentgateway_access_token\').val();
+            
+                            $j.ajax({
+                                method: \'POST\',
+                                url: merchantsUrl,
+                                data: {
+                                    accessToken: accessToken,
+                                    testMode: testmode
+                                }
+                            }).done(function(data) {
+                                if (data.merchants.length > 0) {
+                                    $merchantSelect.find(\'option\').remove().end();
+            
+                                    for (var i = 0; i < data.merchants.length; i++) {
+                                        var merchant = data.merchants[i];
+                                        $merchantSelect.append(\'<option value="\' + merchant.value + \'">\' + merchant.label + \'</option>\');
+                                    }
+            
+                                    $merchantSelect.show();
+                                    $j(\'#payment_nockspaymentgateway_merchants_message\').hide();
+                                } else {
+                                    $merchantSelect.hide();
+                                    $j(\'#payment_nockspaymentgateway_merchants_message\')
+                                        .html(noMerchantsFoundText)
+                                        .show();
+                                }
+                            });
+                        }, 200);
+                    }
+            
+                    $j(\'#payment_nockspaymentgateway_testmode\').on(\'change\', function() {
+                        getMerchants();
+                    });
+            
+                    var lastAccessToken = null;
+                    $j(\'#payment_nockspaymentgateway_access_token\').on(\'change keyup\', function() {
+                        var val = $j(this).val();
+                
+                        if (lastAccessToken !== val) {
+                            getMerchants();
+                            lastAccessToken = val;
+                        }
+                    });
+                });
+            </script>
+        ';
+
+	    return $js;
     }
 }
 
