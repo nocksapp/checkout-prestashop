@@ -2,19 +2,21 @@
 
 
 class nockscheckoutPaymentModuleFrontController extends ModuleFrontController {
-  public $ssl = true;
-  public $display_column_left = false;
 
-  /**
-   * @see FrontController::initContent()
-   */
-  public function initContent() {
-    parent::initContent();
+	public function postProcess() {
+		$issuer = Tools::getValue('nocks_ideal_issuer');
+		$method = strtolower(Tools::getValue('method'));
+		$metadata = [];
 
-    $cart = $this->context->cart;
+		if ($issuer) {
+			$metadata['issuer'] = $issuer;
+		}
 
-    echo $this->module->execPayment($cart);
-  }
+		$this->module->execPayment($this->context->cart, [
+			'method' => $method,
+			'metadata' => $metadata,
+		]);
+	}
 }
 
 
