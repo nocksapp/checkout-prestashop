@@ -24,7 +24,7 @@ class nockscheckout extends PaymentModule {
 
     public function __construct() {
         $this->name = 'nockscheckout';
-        $this->version = '0.9';
+        $this->version = '1.1.0';
         $this->author = 'Sebastiaan Pasma';
         $this->className = 'nockscheckout';
         $this->currencies = true;

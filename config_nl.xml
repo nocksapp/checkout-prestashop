@@ -2,7 +2,7 @@
 <module>
     <name>nockscheckout</name>
     <displayName><![CDATA[Nocks Checkout]]></displayName>
-    <version><![CDATA[0.9]]></version>
+    <version><![CDATA[0.1.0]]></version>
     <description><![CDATA[Accept payments in your webshop via Nocks]]></description>
     <author><![CDATA[Sebastiaan Pasma]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
