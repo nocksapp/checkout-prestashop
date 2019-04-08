@@ -39,4 +39,22 @@ class Nocks_NocksCheckout_Util {
 
 		return sizeof($requiredAccessTokenScopes) === sizeof($requiredScopes);
 	}
+
+	public static function getIdealIssuers() {
+		$accessToken = Configuration::get('nockscheckout_APIKEY');
+		$testmode = Configuration::get('nockscheckout_TESTMODE');
+
+		$api = new Nocks_NocksCheckout_Api($accessToken, $testmode === '1');
+
+		$cache = Cache::getInstance();
+		$key = 'ideal_issers_' . ($api->isTestMode() ? 'test' : 'live');
+		if ($cache->exists($key)) {
+			return json_decode($cache->get($key), true);
+		}
+
+		$issuers = $api->getIssuers();
+		$cache->set($key, json_encode($issuers), 60 * 60 * 24);
+
+		return $issuers;
+	}
 }

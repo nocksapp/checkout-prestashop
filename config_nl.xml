@@ -3,7 +3,7 @@
     <name>nockscheckout</name>
     <displayName><![CDATA[Nocks Checkout]]></displayName>
     <version><![CDATA[0.9]]></version>
-    <description><![CDATA[Accept Gulden payments in your webshop via the Nocks.com platform.]]></description>
+    <description><![CDATA[Accept payments in your webshop via Nocks]]></description>
     <author><![CDATA[Sebastiaan Pasma]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
 	<confirmUninstall><![CDATA[Are you sure you want to delete your details?]]></confirmUninstall>

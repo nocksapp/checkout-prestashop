@@ -4,14 +4,18 @@ class Nocks_NocksCheckout_Api
 {
 	protected $url;
 	protected $oauthUrl;
-
+	protected $testMode;
 	protected $accessToken;
 
 	public function __construct($accessToken, $testMode = false) {
 		$this->accessToken = $accessToken;
-
 		$this->url = $testMode ? 'https://sandbox.nocks.com/api/v2/' : 'https://api.nocks.com/api/v2/';
 		$this->oauthUrl = $testMode ? 'https://sandbox.nocks.com/oauth/' : 'https://www.nocks.com/oauth/';
+		$this->testMode = $testMode;
+	}
+
+	public function isTestMode() {
+		return $this->testMode;
 	}
 
 	/**
@@ -78,6 +82,16 @@ class Nocks_NocksCheckout_Api
 		}
 
 		return null;
+	}
+
+	public function getIssuers() {
+		$response = $this->call('settings', null);
+
+		if ($response) {
+			return $response['payment_methods']['ideal']['metadata']['issuers'];
+		}
+
+		return [];
 	}
 
 	public function call($action, $postData, $isOauth = false) {
