@@ -24,7 +24,7 @@ class nockscheckout extends PaymentModule {
 
     public function __construct() {
         $this->name = 'nockscheckout';
-        $this->version = '1.1.0';
+        $this->version = '1.2.0';
         $this->author = 'Sebastiaan Pasma';
         $this->className = 'nockscheckout';
         $this->currencies = true;
@@ -147,29 +147,26 @@ class nockscheckout extends PaymentModule {
 		    	$sourceCurrency = 'NLG';
 	    }
 
-        // Create invoice
+	    // Create transaction
         $currency = Currency::getCurrencyInstance((int)$cart->id_currency);
-        $options = $_POST;
-        $options['currency'] = $currency->iso_code;
         $total = $cart->getOrderTotal(true);
-
-        $options['orderID'] = $cart->id;
-        $options['price'] = $total;
-        $options['fullNotifications'] = true;
 
 	    $amount = (string)number_format(round( $total, 2, PHP_ROUND_HALF_UP), 2);
         $post = [
-            "merchant_profile"   => Configuration::get('nockscheckout_MERCHANT_UUID'),
-            "amount"            => [
-                "amount"   => $amount,
-                "currency" => strtoupper($options['currency'])
+            'merchant_profile'   => Configuration::get('nockscheckout_MERCHANT_UUID'),
+            'amount'            => [
+                'amount'   => $amount,
+                'currency' => strtoupper($currency->iso_code)
             ],
-            "payment_method"    => $paymentMethod,
-            "metadata"          => [
+            'payment_method'    => $paymentMethod,
+            'metadata'          => [
                 'cartId'        => $cart->id,
+	            'nocks_plugin'  => 'prestashop:' . $this->version,
+	            'prestashop_version' => _PS_VERSION_,
             ],
-            "redirect_url"      => Context::getContext()->link->getModuleLink('nockscheckout', 'validation')."?id_cart=" . $cart->id,
-            "callback_url"      => (Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://') . htmlspecialchars($_SERVER['HTTP_HOST'], ENT_COMPAT, 'UTF-8') . __PS_BASE_URI__ . 'modules/' . $this->className . '/ipn.php',
+	        'redirect_url'      => Context::getContext()->link->getModuleLink('nockscheckout', 'validation')."?id_cart=" . $cart->id,
+            'callback_url'      => (Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://') . htmlspecialchars($_SERVER['HTTP_HOST'], ENT_COMPAT, 'UTF-8') . __PS_BASE_URI__ . 'modules/' . $this->className . '/ipn.php',
+	        'description'       => Configuration::get('PS_SHOP_NAME'),
         ];
 
         if ($sourceCurrency) {
