@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-    <name>nockscheckout</name>
-    <displayName><![CDATA[Nocks Checkout]]></displayName>
-    <version><![CDATA[0.1.0]]></version>
-    <description><![CDATA[Accept payments in your webshop via Nocks]]></description>
+    <name>Nocks Checkout</name>
+    <displayName><![CDATA[Nocks]]></displayName>
+    <version><![CDATA[1.2.0]]></version>
+    <description><![CDATA[Accepteer betalingen met Nocks.]]></description>
     <author><![CDATA[Sebastiaan Pasma]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
 	<confirmUninstall><![CDATA[Are you sure you want to delete your details?]]></confirmUninstall>
