@@ -24,7 +24,7 @@ class nockscheckout extends PaymentModule {
 
     public function __construct() {
         $this->name = 'nockscheckout';
-        $this->version = '1.2.0';
+        $this->version = '1.3.0';
         $this->author = 'Sebastiaan Pasma';
         $this->className = 'nockscheckout';
         $this->currencies = true;
@@ -69,6 +69,9 @@ class nockscheckout extends PaymentModule {
 	    Configuration::deleteByName('nockscheckout_IDEAL');
 	    Configuration::deleteByName('nockscheckout_SEPA');
 	    Configuration::deleteByName('nockscheckout_BALANCE');
+	    Configuration::deleteByName('nockscheckout_BITCOIN');
+	    Configuration::deleteByName('nockscheckout_LITECOIN');
+	    Configuration::deleteByName('nockscheckout_ETHEREUM');
 	    Configuration::deleteByName('nockscheckout_LOGO');
 
         return parent::uninstall();
@@ -94,6 +97,9 @@ class nockscheckout extends PaymentModule {
 	    $this->addPaymentMethod($payment_options, 'IDEAL', 'iDEAL');
 	    $this->addPaymentMethod($payment_options, 'SEPA', 'SEPA');
 	    $this->addPaymentMethod($payment_options, 'BALANCE', 'Nocks Balance');
+	    $this->addPaymentMethod($payment_options, 'BITCOIN', 'Bitcoin');
+	    $this->addPaymentMethod($payment_options, 'LITECOIN', 'Litecoin');
+	    $this->addPaymentMethod($payment_options, 'ETHEREUM', 'Ethereum');
 
         return $payment_options;
     }
@@ -145,6 +151,15 @@ class nockscheckout extends PaymentModule {
 		    	break;
 		    case 'gulden':
 		    	$sourceCurrency = 'NLG';
+		    	break;
+		    case 'bitcoin':
+			    $sourceCurrency = 'BTC';
+			    break;
+		    case 'litecoin':
+			    $sourceCurrency = 'LTC';
+			    break;
+		    case 'ethereum':
+			    $sourceCurrency = 'ETH';
 	    }
 
 	    // Create transaction
@@ -325,6 +340,15 @@ class nockscheckout extends PaymentModule {
                <div>
                	<label style="width:auto; text-align: left; display: block; float: none; margin-bottom: 3px;"><input type="checkbox" name="payment_balance_nockscheckout" value="1" ' . (Configuration::get('nockscheckout_BALANCE') == "1" ? 'checked' : '') . '> ' . $this->l('Nocks Balance') . '</label>
                </div>
+               <div>
+               	<label style="width:auto; text-align: left; display: block; float: none; margin-bottom: 3px;"><input type="checkbox" name="payment_bitcoin_nockscheckout" value="1" ' . (Configuration::get('nockscheckout_BITCOIN') == "1" ? 'checked' : '') . '> ' . $this->l('Bitcoin') . '</label>
+               </div>
+               <div>
+               	<label style="width:auto; text-align: left; display: block; float: none; margin-bottom: 3px;"><input type="checkbox" name="payment_litecoin_nockscheckout" value="1" ' . (Configuration::get('nockscheckout_LITECOIN') == "1" ? 'checked' : '') . '> ' . $this->l('Litecoin') . '</label>
+               </div>
+               <div>
+               	<label style="width:auto; text-align: left; display: block; float: none; margin-bottom: 3px;"><input type="checkbox" name="payment_ethereum_nockscheckout" value="1" ' . (Configuration::get('nockscheckout_ETHEREUM') == "1" ? 'checked' : '') . '> ' . $this->l('Ethereum') . '</label>
+               </div>
                <br/>
                <div class="form-control">
                	<label>
@@ -397,6 +421,9 @@ class nockscheckout extends PaymentModule {
 	            Configuration::updateValue('nockscheckout_IDEAL', trim(Tools::getValue('payment_ideal_nockscheckout')));
 	            Configuration::updateValue('nockscheckout_SEPA', trim(Tools::getValue('payment_sepa_nockscheckout')));
 	            Configuration::updateValue('nockscheckout_BALANCE', trim(Tools::getValue('payment_balance_nockscheckout')));
+	            Configuration::updateValue('nockscheckout_BITCOIN', trim(Tools::getValue('payment_bitcoin_nockscheckout')));
+	            Configuration::updateValue('nockscheckout_LITECOIN', trim(Tools::getValue('payment_litecoin_nockscheckout')));
+	            Configuration::updateValue('nockscheckout_ETHEREUM', trim(Tools::getValue('payment_ethereum_nockscheckout')));
 	            Configuration::updateValue('nockscheckout_LOGO', trim(Tools::getValue('logo_nockscheckout')));
 
 	            $this->_html = $this->displayConfirmation($this->l('Settings updated'));
