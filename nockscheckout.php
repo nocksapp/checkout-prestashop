@@ -24,7 +24,7 @@ class nockscheckout extends PaymentModule {
 
     public function __construct() {
         $this->name = 'nockscheckout';
-        $this->version = '1.3.0';
+        $this->version = '1.4.0';
         $this->author = 'Sebastiaan Pasma';
         $this->className = 'nockscheckout';
         $this->currencies = true;
@@ -131,7 +131,7 @@ class nockscheckout extends PaymentModule {
 				    	'issuer' => [
 				    		'name' => 'nocks_ideal_issuer',
 						    'type' => 'hidden',
-						    'value' => array_keys($issuers)[0],
+						    'value' => '',
 					    ]
 				    ]))
 				    ->setAdditionalInformation($this->fetch('module:nockscheckout/views/templates/hook/issuers.tpl'));
